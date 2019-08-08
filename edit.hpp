@@ -10,7 +10,7 @@
 #include <mutex>
 #include <atomic>
 
-#define EDIT_USE_OMP
+#define AAA
 
 using namespace mcl::she;
 using namespace mcl::bn;
@@ -22,9 +22,15 @@ typedef std::vector<CipherTextG1Vec> CipherTextG1VecVec;
 namespace edit {
 
 // fixed parameters
+#ifdef AAA
+const int diffMin = -5;
+const int diffMax = 10;
+const int diffNum = diffMax - diffMin + 1;
+#else
 const int diffMin = -1;
 const int diffMax = 2;
 const int diffNum = diffMax - diffMin + 1;
+#endif
 
 } // edit
 
@@ -139,6 +145,46 @@ void serverMinVec(Stream& soc, CIPHER *out, const CIPHER *bv, int m, cybozu::Ran
 		}
 	}
 }
+
+// xv[] = min(0, xv[], yv[])
+template<class Stream, class CIPHER>
+void serverMinVec2(Stream& soc, CIPHER *xv, const CIPHER *yv, int m, cybozu::RandomGenerator& rg, const CIPHER *cTbl)
+{
+	const int n = edit::diffNum;
+	IntVec idxVec(m * n);
+
+	cybozu::save(soc, m);
+	std::mutex mw;
+#pragma omp parallel for
+	for (int i = 0; i < m; i++) {
+		CipherPack cp;
+		CipherTextG1 c;
+		add(c, xv[i], xv[i]);
+		add(c, c, c); // 4xv[i]
+		add(c, c, yv[i]); // 4xv[i] + yv[i] in [-5, 10]
+		mixEnc(&idxVec[i * n], cp, c, rg, cTbl);
+		cp.id = i;
+
+		{
+			std::lock_guard<std::mutex> lk(mw);
+			soc.write(&cp, sizeof(cp));
+		}
+	}
+
+	for (int i = 0; i < m; i++) {
+		CipherPack cp;
+		soc.read(&cp, sizeof(cp));
+		if (0 <= cp.id && cp.id < m) {
+			int idx = cp.id * n;
+			CipherTextG1 c;
+			add(c, cp.c[idxVec[idx + 0]], cp.c[idxVec[idx + 1]]);
+			add(c, c, cp.c[idxVec[idx + 2]]);
+			add(c, c, cp.c[idxVec[idx + 4]]);
+			add(xv[cp.id], c, cp.c[idxVec[idx + 8]]);
+		}
+	}
+}
+
 
 /*
 	BitEnc(x) := (Enc(delta_xi)) for i = 0, ..., n-1
@@ -321,20 +367,40 @@ void serverProcess(Stream& soc, const IntVec& v)
 		min(D, U) - L =  -1 0 1 2
 	*/
 
-	CipherTextG1 cTbl[edit::diffMax - edit::diffMin + 1];
-	for (int i = edit::diffMin; i <= edit::diffMax; i++) {
-		ppub.enc(cTbl[i - edit::diffMin], i);
+	CipherTextG1 cTbl[edit::diffNum];
+	for (int i = 0; i < edit::diffNum; i++) {
+		ppub.enc(cTbl[i], i + edit::diffMin);
 	}
 	const int minN = (std::min)(clientN, serverN);
 	const int maxN = (std::max)(clientN, serverN);
 	CipherTextG1Vec av(minN);
 	CipherTextG1Vec bv(minN);
+#ifdef AAA
+	CipherTextG1Vec cv(minN);
+#endif
 	for (int k = 1; k < minN + maxN; k++) {
 		printf("%d ", k);
 		const int beginI = (std::min)(k, serverN);
 		const int beginJ = 1 + k - beginI;
 		const int endJ = (std::min)(k, clientN);
 		const int m = endJ - beginJ + 1;
+#ifdef AAA
+		for (int s = 0; s < m; s++) {
+			int i = beginI - s;
+			int j = beginJ + s;
+			sub(av[s], dp[i - 1][j - 1], csMat[i - 1][j - 1]); // D
+			sub(bv[s], dp[i - 1][j], av[s]); // U - D
+			sub(cv[s], dp[i][j - 1], av[s]); // L - D
+		}
+		serverMinVec2(soc, bv.data(), cv.data(), m, rg, cTbl);
+		// bv[] = min(0, U - D, L - D)
+		for (int s = 0; s < m; s++) {
+			int i = beginI - s;
+			int j = beginJ + s;
+			add(dp[i][j], av[s], one);
+			add(dp[i][j], dp[i][j], bv[s]); // 1 + min(D, U, L)
+		}
+#else
 		for (int s = 0; s < m; s++) {
 			int i = beginI - s;
 			int j = beginJ + s;
@@ -353,6 +419,7 @@ void serverProcess(Stream& soc, const IntVec& v)
 			int j = beginJ + s;
 			add(dp[i][j], av[s], one);
 		}
+#endif
 	}
 	printf("\n");
 	cybozu::save(soc, 0); // finish
