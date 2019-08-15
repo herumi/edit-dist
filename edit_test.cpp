@@ -147,15 +147,24 @@ CYBOZU_TEST_AUTO(bench)
 	CYBOZU_BENCH_C("isZero", 1000, g_sec.isZero, c1);
 	CYBOZU_BENCH_C("add", 1000, CipherTextG1::add, c1, c1, c1);
 	CYBOZU_BENCH_C("mul", 1000, CipherTextG1::mul, c1, c1, gamma);
-	mpz_class r;
-	mcl::gmp::getRand(r, 160);
-	CYBOZU_BENCH_C("mul160", 1000, CipherTextG1::mul, c1, c1, r);
 	char buf[256];
 	size_t n = c1.serialize(buf, sizeof(buf));
 	printf("n=%zd\n", n);
 	CYBOZU_BENCH_C("seri", 1000, c1.serialize, buf, sizeof(buf));
 	n = c1.deserialize(buf, n);
 	CYBOZU_BENCH_C("deseri", 1000, c1.deserialize, buf, sizeof(buf));
+	{
+		CipherPack cp;
+		CipherTextG1 c;
+		CipherTextG1 cTbl[edit::diffNum];
+		cybozu::RandomGenerator rg;
+		for (int i = 0; i < edit::diffNum; i++) {
+			ppub.enc(cTbl[i], i + edit::diffMin);
+		}
+		IntVec idxVec(4);
+		ppub.enc(c, 3);
+		CYBOZU_BENCH_C("mixEnc", 1000, mixEnc, &idxVec[0], cp, c, rg, cTbl);
+	}
 #if 0
 	puts("G2");
 	CipherTextG2 c2;

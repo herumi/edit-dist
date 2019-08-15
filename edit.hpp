@@ -24,6 +24,8 @@ const int diffMin = -1;
 const int diffMax = 2;
 const int diffNum = diffMax - diffMin + 1;
 
+mcl::fp::WindowMethod<G1> g_winP;
+
 } // edit
 
 struct CipherPack {
@@ -71,6 +73,54 @@ int editDist(const V& a, const V& b)
 }
 
 /*
+	out[i] = P * in[i]
+*/
+template<size_t n>
+void multiMul(G1 *out, const G1& P, const mpz_class *in)
+{
+#if 0
+	for (size_t i = 0; i < n; i++) {
+		G1::mul(out[i], P, in[i]);
+	}
+#else
+	const int w = 7;
+	const size_t tblSize = 1 << (w - 2);
+	typedef mcl::FixedArray<int8_t, sizeof(Fr) * 8 / 2 + 2> NafArray;
+	NafArray naf[n][2];
+	mpz_class u[n][2];
+	G1 tbl[2][tblSize];
+
+	for (size_t i = 0; i < n; i++) {
+		mcl::GLV1T<G1>::split(u[i][0], u[i][1], in[i]);
+		bool b;
+		mcl::gmp::getNAFwidth(&b, naf[i][0], u[i][0], w);
+		mcl::gmp::getNAFwidth(&b, naf[i][1], u[i][1], w);
+		(void)b;
+	}
+
+	tbl[0][0] = P;
+	mcl::GLV1T<G1>::mulLambda(tbl[1][0], tbl[0][0]);
+	{
+		G1 P2;
+		G1::dbl(P2, P);
+		for (size_t i = 1; i < tblSize; i++) {
+			G1::add(tbl[0][i], tbl[0][i - 1], P2);
+			mcl::GLV1T<G1>::mulLambda(tbl[1][i], tbl[0][i]);
+		}
+	}
+	for (size_t j = 0; j < n; j++) {
+		G1& Q = out[j];
+		size_t maxBit = mcl::fp::max_(naf[j][0].size(), naf[j][1].size());
+		Q.clear();
+		for (size_t i = 0; i < maxBit; i++) {
+			G1::dbl(Q, Q);
+			mcl::local::addTbl(Q, tbl[0], naf[j][0], maxBit - 1 - i);
+			mcl::local::addTbl(Q, tbl[1], naf[j][1], maxBit - 1 - i);
+		}
+	}
+#endif
+}
+/*
 	assume
 	n = max - min + 1
 	idxVec.size() == n
@@ -80,14 +130,51 @@ int editDist(const V& a, const V& b)
 template<class INT_VEC, class CIPHER>
 void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::RandomGenerator& rg, const CIPHER *cTbl)
 {
-	const int min = edit::diffMin;
-	const int max = edit::diffMax;
 	const int n = edit::diffNum;
 	for (int i = 0; i < n; i++) {
 		idxVec[i] = i;
 	}
 	cybozu::shuffle(idxVec, n, rg);
 	CipherTextG1 v[n];
+	// 1.15Mclk
+#if 1
+	(void)cTbl;
+	/*
+		c = (S, T)
+		Enc(i) = (iP, 0) ; trivial cipher
+		r (c - Enc(i)) = (rS - irP, rT)
+	*/
+	assert(n == 4);
+	mpz_class rVec[n];
+	G1 SVec[n];
+	G1 TVec[n];
+	for (int i = 0; i < n; i++) {
+		mcl::gmp::getRand(rVec[i], 256);
+	}
+	const G1& S = in.getS();
+	const G1& T = in.getT();
+	multiMul<n>(&SVec[0], S, &rVec[0]);
+	multiMul<n>(&TVec[0], T, &rVec[0]);
+	/*
+		i = -1, 0, 1, 2
+	*/
+	G1 rP;
+	edit::g_winP.mul(rP, rVec[0]);
+	SVec[0] += rP; // (rS - (-1)rP)
+
+	edit::g_winP.mul(rP, rVec[2]);
+	SVec[2] -= rP; // (rP - (1)rP)
+
+	rVec[3] += rVec[3];
+	edit::g_winP.mul(rP, rVec[3]);
+	SVec[3] -= rP; // (rP - (2)rP)
+	for (int i = 0; i < n; i++) {
+		const_cast<G1&>(v[i].getS()) = SVec[i];
+		const_cast<G1&>(v[i].getT()) = TVec[i];
+	}
+#else
+	const int min = edit::diffMin;
+	const int max = edit::diffMax;
 	mpz_class gamma;
 	for (int i = min; i <= max; i++) {
 		CipherTextG1 c;
@@ -95,6 +182,7 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 		mcl::gmp::getRand(gamma, 256);
 		mul(v[i - min], c, gamma);
 	}
+#endif
 	for (int i = 0; i < n; i++) {
 		cp.c[idxVec[i]] = v[i];
 	}
@@ -254,6 +342,7 @@ template<class Stream>
 void serverProcess(Stream& soc, const IntVec& v)
 {
 	const int serverN = (int)v.size();
+	edit::g_winP.init(SHE::P_, 256, MCLSHE_WIN_SIZE);
 	PublicKey pub;
 	pub.load(soc);
 

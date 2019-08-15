@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
 	std::string s;
 	int slen;
 	bool debug;
+	bool delay;
 	int n;
 	opt.appendOpt(&ip, "", "ip", ": ip address");
 	opt.appendOpt(&port, 10000, "p", ": port");
@@ -35,6 +36,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&saveSecretKey, "save-sec", ": save secretKey");
 	opt.appendBoolOpt(&newSecretKey, "new", ": new secretKey");
 	opt.appendBoolOpt(&debug, "d", ": debug");
+	opt.appendBoolOpt(&delay, "delay", ": tcp delay");
 	opt.appendBoolOpt(&swapRole, "swap", ": swap role");
 	opt.appendHelp("h", "show this message");
 	if (!opt.parse(argc, argv)) {
@@ -83,7 +85,9 @@ int main(int argc, char *argv[])
 			}
 			cybozu::Socket client;
 			server.accept(client);
-			client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
+			if (!delay) {
+				client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
+			}
 #if 0
 			serverProcess(client, v);
 #else
@@ -105,7 +109,9 @@ int main(int argc, char *argv[])
 		client.connect(sa);
 		Timer t;
 		t.begin("total");
-		client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
+		if (!delay) {
+			client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
+		}
 #if 0
 		clientProcess(client, sec, v, n);
 #else
