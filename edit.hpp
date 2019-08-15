@@ -1,5 +1,5 @@
 #pragma once
-//#define MCLSHE_WIN_SIZE 10
+#define MCLSHE_WIN_SIZE 16
 #define MCLBN_FP_UNIT_SIZE 4
 #define MCLBN_FR_UNIT_SIZE 4
 #include <mcl/she.hpp>
@@ -9,8 +9,6 @@
 #include <fstream>
 #include <mutex>
 #include <atomic>
-
-#define AAA
 
 using namespace mcl::she;
 using namespace mcl::bn;
@@ -22,15 +20,9 @@ typedef std::vector<CipherTextG1Vec> CipherTextG1VecVec;
 namespace edit {
 
 // fixed parameters
-#ifdef AAA
-const int diffMin = -5;
-const int diffMax = 10;
-const int diffNum = diffMax - diffMin + 1;
-#else
 const int diffMin = -1;
 const int diffMax = 2;
 const int diffNum = diffMax - diffMin + 1;
-#endif
 
 } // edit
 
@@ -375,32 +367,12 @@ void serverProcess(Stream& soc, const IntVec& v)
 	const int maxN = (std::max)(clientN, serverN);
 	CipherTextG1Vec av(minN);
 	CipherTextG1Vec bv(minN);
-#ifdef AAA
-	CipherTextG1Vec cv(minN);
-#endif
 	for (int k = 1; k < minN + maxN; k++) {
 		printf("%d ", k);
 		const int beginI = (std::min)(k, serverN);
 		const int beginJ = 1 + k - beginI;
 		const int endJ = (std::min)(k, clientN);
 		const int m = endJ - beginJ + 1;
-#ifdef AAA
-		for (int s = 0; s < m; s++) {
-			int i = beginI - s;
-			int j = beginJ + s;
-			sub(av[s], dp[i - 1][j - 1], csMat[i - 1][j - 1]); // D
-			sub(bv[s], dp[i - 1][j], av[s]); // U - D
-			sub(cv[s], dp[i][j - 1], av[s]); // L - D
-		}
-		serverMinVec2(soc, bv.data(), cv.data(), m, rg, cTbl);
-		// bv[] = min(0, U - D, L - D)
-		for (int s = 0; s < m; s++) {
-			int i = beginI - s;
-			int j = beginJ + s;
-			add(dp[i][j], av[s], one);
-			add(dp[i][j], dp[i][j], bv[s]); // 1 + min(D, U, L)
-		}
-#else
 		for (int s = 0; s < m; s++) {
 			int i = beginI - s;
 			int j = beginJ + s;
@@ -419,7 +391,6 @@ void serverProcess(Stream& soc, const IntVec& v)
 			int j = beginJ + s;
 			add(dp[i][j], av[s], one);
 		}
-#endif
 	}
 	printf("\n");
 	cybozu::save(soc, 0); // finish
