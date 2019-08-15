@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
 	int port;
 	bool saveSecretKey;
 	bool newSecretKey;
+	bool swapRole;
 	std::string ip;
 	std::string s;
 	int slen;
@@ -34,6 +35,7 @@ int main(int argc, char *argv[])
 	opt.appendBoolOpt(&saveSecretKey, "save-sec", ": save secretKey");
 	opt.appendBoolOpt(&newSecretKey, "new", ": new secretKey");
 	opt.appendBoolOpt(&debug, "d", ": debug");
+	opt.appendBoolOpt(&swapRole, "swap", ": swap role");
 	opt.appendHelp("h", "show this message");
 	if (!opt.parse(argc, argv)) {
 		opt.usage();
@@ -64,6 +66,14 @@ int main(int argc, char *argv[])
 	}
 	printf("\n");
 
+	SecretKey sec;
+	if (newSecretKey) {
+		sec.setByCSPRNG();
+	} else {
+		std::ifstream ifs(g_secretKeyName, std::ios::binary);
+		sec.load(ifs);
+	}
+
 	if (ip.empty()) {
 		printf("server port=%d\n", port);
 		cybozu::Socket server;
@@ -74,16 +84,20 @@ int main(int argc, char *argv[])
 			cybozu::Socket client;
 			server.accept(client);
 			client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
+#if 0
 			serverProcess(client, v);
+#else
+			char c;
+			client.read(&c, 1);
+			printf("c=%c\n", c);
+			if (c == '0') {
+				serverProcess(client, v);
+			} else {
+				clientProcess(client, sec, v, n);
+			}
+#endif
 		}
 	} else {
-		SecretKey sec;
-		if (newSecretKey) {
-			sec.setByCSPRNG();
-		} else {
-			std::ifstream ifs(g_secretKeyName, std::ios::binary);
-			sec.load(ifs);
-		}
 		printf("client ip=%s port=%d\n", ip.c_str(), port);
 		cybozu::SocketAddr sa(ip, uint16_t(port));
 		printf("addr=%s\n", sa.toStr().c_str());
@@ -92,7 +106,16 @@ int main(int argc, char *argv[])
 		Timer t;
 		t.begin("total");
 		client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
+#if 0
 		clientProcess(client, sec, v, n);
+#else
+		client.write(swapRole ? "1" : "0", 1);
+		if (swapRole) {
+			serverProcess(client, v);
+		} else {
+			clientProcess(client, sec, v, n);
+		}
+#endif
 		t.end();
 	}
 } catch (std::exception& e) {

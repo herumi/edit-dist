@@ -1,5 +1,5 @@
 #pragma once
-#define MCLSHE_WIN_SIZE 16
+//#define MCLSHE_WIN_SIZE 16
 #define MCLBN_FP_UNIT_SIZE 4
 #define MCLBN_FR_UNIT_SIZE 4
 #include <mcl/she.hpp>
@@ -137,46 +137,6 @@ void serverMinVec(Stream& soc, CIPHER *out, const CIPHER *bv, int m, cybozu::Ran
 		}
 	}
 }
-
-// xv[] = min(0, xv[], yv[])
-template<class Stream, class CIPHER>
-void serverMinVec2(Stream& soc, CIPHER *xv, const CIPHER *yv, int m, cybozu::RandomGenerator& rg, const CIPHER *cTbl)
-{
-	const int n = edit::diffNum;
-	IntVec idxVec(m * n);
-
-	cybozu::save(soc, m);
-	std::mutex mw;
-#pragma omp parallel for
-	for (int i = 0; i < m; i++) {
-		CipherPack cp;
-		CipherTextG1 c;
-		add(c, xv[i], xv[i]);
-		add(c, c, c); // 4xv[i]
-		add(c, c, yv[i]); // 4xv[i] + yv[i] in [-5, 10]
-		mixEnc(&idxVec[i * n], cp, c, rg, cTbl);
-		cp.id = i;
-
-		{
-			std::lock_guard<std::mutex> lk(mw);
-			soc.write(&cp, sizeof(cp));
-		}
-	}
-
-	for (int i = 0; i < m; i++) {
-		CipherPack cp;
-		soc.read(&cp, sizeof(cp));
-		if (0 <= cp.id && cp.id < m) {
-			int idx = cp.id * n;
-			CipherTextG1 c;
-			add(c, cp.c[idxVec[idx + 0]], cp.c[idxVec[idx + 1]]);
-			add(c, c, cp.c[idxVec[idx + 2]]);
-			add(c, c, cp.c[idxVec[idx + 4]]);
-			add(xv[cp.id], c, cp.c[idxVec[idx + 8]]);
-		}
-	}
-}
-
 
 /*
 	BitEnc(x) := (Enc(delta_xi)) for i = 0, ..., n-1
