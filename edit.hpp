@@ -1,5 +1,5 @@
 #pragma once
-//#define MCLSHE_WIN_SIZE 16
+#define MCLSHE_WIN_SIZE 12
 #define MCLBN_FP_UNIT_SIZE 4
 #define MCLBN_FR_UNIT_SIZE 4
 #include <mcl/she.hpp>
@@ -75,28 +75,18 @@ int editDist(const V& a, const V& b)
 /*
 	out[i] = P * in[i]
 */
-template<size_t n>
+template<size_t n, int w = 7>
 void multiMul(G1 *out, const G1& P, const mpz_class *in)
 {
 #if 0
+	// 568Kclk
 	for (size_t i = 0; i < n; i++) {
 		G1::mul(out[i], P, in[i]);
 	}
 #else
-	const int w = 7;
+	// 509Kclk
 	const size_t tblSize = 1 << (w - 2);
-	typedef mcl::FixedArray<int8_t, sizeof(Fr) * 8 / 2 + 2> NafArray;
-	NafArray naf[n][2];
-	mpz_class u[n][2];
 	G1 tbl[2][tblSize];
-
-	for (size_t i = 0; i < n; i++) {
-		mcl::GLV1T<G1>::split(u[i][0], u[i][1], in[i]);
-		bool b;
-		mcl::gmp::getNAFwidth(&b, naf[i][0], u[i][0], w);
-		mcl::gmp::getNAFwidth(&b, naf[i][1], u[i][1], w);
-		(void)b;
-	}
 
 	tbl[0][0] = P;
 	mcl::GLV1T<G1>::mulLambda(tbl[1][0], tbl[0][0]);
@@ -108,14 +98,25 @@ void multiMul(G1 *out, const G1& P, const mpz_class *in)
 			mcl::GLV1T<G1>::mulLambda(tbl[1][i], tbl[0][i]);
 		}
 	}
+
+	typedef mcl::FixedArray<int8_t, sizeof(Fr) * 8 / 2 + 2> NafArray;
+	NafArray naf[2];
+	mpz_class u[2];
+
 	for (size_t j = 0; j < n; j++) {
+		mcl::GLV1T<G1>::split(u[0], u[1], in[j]);
+		bool b;
+		mcl::gmp::getNAFwidth(&b, naf[0], u[0], w);
+		mcl::gmp::getNAFwidth(&b, naf[1], u[1], w);
+		(void)b;
+
 		G1& Q = out[j];
-		size_t maxBit = mcl::fp::max_(naf[j][0].size(), naf[j][1].size());
+		size_t maxBit = mcl::fp::max_(naf[0].size(), naf[1].size());
 		Q.clear();
 		for (size_t i = 0; i < maxBit; i++) {
 			G1::dbl(Q, Q);
-			mcl::local::addTbl(Q, tbl[0], naf[j][0], maxBit - 1 - i);
-			mcl::local::addTbl(Q, tbl[1], naf[j][1], maxBit - 1 - i);
+			mcl::local::addTbl(Q, tbl[0], naf[0], maxBit - 1 - i);
+			mcl::local::addTbl(Q, tbl[1], naf[1], maxBit - 1 - i);
 		}
 	}
 #endif
@@ -146,13 +147,13 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	*/
 	assert(n == 4);
 	mpz_class rVec[n];
-	G1 SVec[n];
-	G1 TVec[n];
 	for (int i = 0; i < n; i++) {
 		mcl::gmp::getRand(rVec[i], 256);
 	}
 	const G1& S = in.getS();
 	const G1& T = in.getT();
+	G1 SVec[n];
+	G1 TVec[n];
 	multiMul<n>(&SVec[0], S, &rVec[0]);
 	multiMul<n>(&TVec[0], T, &rVec[0]);
 	/*

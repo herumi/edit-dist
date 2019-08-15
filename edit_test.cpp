@@ -164,6 +164,18 @@ CYBOZU_TEST_AUTO(bench)
 		IntVec idxVec(4);
 		ppub.enc(c, 3);
 		CYBOZU_BENCH_C("mixEnc", 1000, mixEnc, &idxVec[0], cp, c, rg, cTbl);
+		const size_t n = 4;
+		mpz_class rVec[n];
+		for (size_t i = 0; i < n; i++) {
+			mcl::gmp::getRand(rVec[i], 256);
+		}
+		G1 vec[n];
+		CYBOZU_BENCH_C("winP.mul", 1000, edit::g_winP.mul, vec[0], rVec[0]);
+		CYBOZU_BENCH_C("multiMul4", 10000, (multiMul<n, 4>), vec, c.getS(), rVec);
+		CYBOZU_BENCH_C("multiMul5", 10000, (multiMul<n, 5>), vec, c.getS(), rVec);
+		CYBOZU_BENCH_C("multiMul6", 10000, (multiMul<n, 6>), vec, c.getS(), rVec);
+		CYBOZU_BENCH_C("multiMul7", 10000, (multiMul<n, 7>), vec, c.getS(), rVec);
+		CYBOZU_BENCH_C("multiMul8", 10000, (multiMul<n, 8>), vec, c.getS(), rVec);
 	}
 #if 0
 	puts("G2");
