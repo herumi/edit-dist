@@ -14,14 +14,20 @@ else
   CFLAGS+=-fopenmp
   LDFLAGS+=-fopenmp
 endif
+
+MCLLIB=../mcl/lib/libmcl.a
+
+$(MCLLIB):
+	$(MAKE) -C ../mcl lib/libmcl.a
+
 %.o: %.cpp edit.hpp
 	$(PRE)$(CXX) $(CFLAGS) -c $< -o $@ -MMD -MP -MF $(@:.o=.d)
 
-$(TARGET): edit.o
-	$(PRE)$(CXX) $< -o $@ ../mcl/lib/libmcl.a $(LDFLAGS)
+$(TARGET): edit.o $(MCLLIB)
+	$(PRE)$(CXX) $< -o $@ $(MCLLIB) $(LDFLAGS)
 
-edit_test: edit_test.o
-	$(PRE)$(CXX) $< -o $@ ../mcl/lib/libmcl.a $(LDFLAGS) -lpthread
+edit_test: edit_test.o $(MCLLIB)
+	$(PRE)$(CXX) $< -o $@ $(MCLLIB) $(LDFLAGS) -lpthread
 
 test: edit_test
 	time ./edit_test -n 4

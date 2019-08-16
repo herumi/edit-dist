@@ -1,5 +1,5 @@
 #pragma once
-#define MCLSHE_WIN_SIZE 11
+#define MCLSHE_WIN_SIZE 12
 #define MCLBN_FP_UNIT_SIZE 4
 #define MCLBN_FR_UNIT_SIZE 4
 #include <mcl/she.hpp>
@@ -85,7 +85,7 @@ int editDist(const V& a, const V& b)
 /*
 	out[i] = P * in[i]
 */
-template<size_t n, int w = 6>
+template<size_t n, int w = 7>
 void multiMul(G1 *out, const G1& P, const mpz_class *in)
 {
 #if 0
@@ -165,6 +165,7 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	G1 SVec[n];
 	G1 TVec[n];
 #if 1
+	// a little faster on Xeon SP
 	G1::add(SVec[0], S, SHE::P_); // c - Enc(-1)
 	SVec[1] = S; // c - Enc(0)
 	G1::sub(SVec[2], S, SHE::P_); // c - Enc(1)
@@ -174,6 +175,7 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	}
 	multiMul<n>(&TVec[0], T, &rVec[0]);
 #else
+	// a little faster on mac
 	multiMul<n>(&SVec[0], S, &rVec[0]);
 	multiMul<n>(&TVec[0], T, &rVec[0]);
 	/*
