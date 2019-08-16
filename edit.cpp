@@ -87,9 +87,6 @@ int main(int argc, char *argv[])
 			if (!delay) {
 				client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
 			}
-#if 0
-			serverProcess(client, v);
-#else
 			char c;
 			client.read(&c, 1);
 			printf("c=%c\n", c);
@@ -98,7 +95,6 @@ int main(int argc, char *argv[])
 			} else {
 				clientProcess(client, sec, v, n);
 			}
-#endif
 		}
 	} else {
 		printf("client ip=%s port=%d\n", ip.c_str(), port);
@@ -111,16 +107,12 @@ int main(int argc, char *argv[])
 		if (!delay) {
 			client.setSocketOption(TCP_NODELAY, 1, IPPROTO_TCP);
 		}
-#if 0
-		clientProcess(client, sec, v, n);
-#else
 		client.write(swapRole ? "1" : "0", 1);
 		if (swapRole) {
 			serverProcess(client, v);
 		} else {
 			clientProcess(client, sec, v, n);
 		}
-#endif
 		t.end();
 	}
 } catch (std::exception& e) {
