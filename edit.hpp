@@ -1,5 +1,5 @@
 #pragma once
-#define MCLSHE_WIN_SIZE 12
+#define MCLSHE_WIN_SIZE 11
 #define MCLBN_FP_UNIT_SIZE 4
 #define MCLBN_FR_UNIT_SIZE 4
 #include <mcl/she.hpp>
@@ -25,6 +25,16 @@ const int diffMax = 2;
 const int diffNum = diffMax - diffMin + 1;
 
 mcl::fp::WindowMethod<G1> g_winP;
+static CipherTextG1 g_c[2];
+G1 g_2P;
+
+void init()
+{
+	const size_t tryNum = 1;
+	mcl::she::initG1only(mcl::ecparam::secp256k1, 2048, tryNum);
+	edit::g_winP.init(SHE::P_, 256, MCLSHE_WIN_SIZE);
+	G1::dbl(g_2P, SHE::P_);
+}
 
 } // edit
 
@@ -75,7 +85,7 @@ int editDist(const V& a, const V& b)
 /*
 	out[i] = P * in[i]
 */
-template<size_t n, int w = 7>
+template<size_t n, int w = 6>
 void multiMul(G1 *out, const G1& P, const mpz_class *in)
 {
 #if 0
@@ -154,6 +164,16 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	const G1& T = in.getT();
 	G1 SVec[n];
 	G1 TVec[n];
+#if 1
+	G1::add(SVec[0], S, SHE::P_); // c - Enc(-1)
+	SVec[1] = S; // c - Enc(0)
+	G1::sub(SVec[2], S, SHE::P_); // c - Enc(1)
+	G1::sub(SVec[2], S, edit::g_2P); // c - Enc(2)
+	for (int i = 0; i < n; i++) {
+		G1::mul(SVec[i], SVec[i], rVec[i]);
+	}
+	multiMul<n>(&TVec[0], T, &rVec[0]);
+#else
 	multiMul<n>(&SVec[0], S, &rVec[0]);
 	multiMul<n>(&TVec[0], T, &rVec[0]);
 	/*
@@ -169,6 +189,7 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	rVec[3] += rVec[3];
 	edit::g_winP.mul(rP, rVec[3]);
 	SVec[3] -= rP; // (rP - (2)rP)
+#endif
 	for (int i = 0; i < n; i++) {
 		const_cast<G1&>(v[i].getS()) = SVec[i];
 		const_cast<G1&>(v[i].getT()) = TVec[i];
@@ -231,7 +252,6 @@ void serverMinVec(Stream& soc, CIPHER *out, const CIPHER *bv, int m, cybozu::Ran
 	BitEnc(x) := (Enc(delta_xi)) for i = 0, ..., n-1
 	cv = [BitEnc(v[i]]
 */
-static CipherTextG1 g_c[2];
 
 void encIntVec(CipherTextG1Vec& cv, const IntVec& v, int charN, const PrecomputedPublicKey& ppub)
 {
@@ -252,7 +272,7 @@ void clientReEncPack(CipherPack *cp, const SecretKey& sec, const PrecomputedPubl
 #if 0
 		// emulate precomputed version
 		(void)ppub;
-		cp->c[i] = g_c[v];
+		cp->c[i] = edit::g_c[v];
 #else
 		ppub.enc(cp->c[i], v);
 #endif
@@ -287,8 +307,8 @@ bool clientProcess(Stream& soc, const SecretKey& sec, const IntVec& v, int charN
 	ppub.init(pub);
 
 	// precomputed
-	ppub.enc(g_c[0], 0);
-	ppub.enc(g_c[1], 1);
+	ppub.enc(edit::g_c[0], 0);
+	ppub.enc(edit::g_c[1], 1);
 
 	CipherTextG1Vec cv;
 	puts("prepare");
@@ -343,7 +363,6 @@ template<class Stream>
 void serverProcess(Stream& soc, const IntVec& v)
 {
 	const int serverN = (int)v.size();
-	edit::g_winP.init(SHE::P_, 256, MCLSHE_WIN_SIZE);
 	PublicKey pub;
 	pub.load(soc);
 

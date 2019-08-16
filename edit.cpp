@@ -43,8 +43,7 @@ int main(int argc, char *argv[])
 		opt.usage();
 		return 1;
 	}
-	const size_t tryNum = 1;
-	mcl::she::initG1only(mcl::ecparam::secp256k1, 2048, tryNum);
+	edit::init();
 
 	if (saveSecretKey) {
 		SecretKey sec;

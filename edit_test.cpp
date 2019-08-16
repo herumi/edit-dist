@@ -201,9 +201,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	const size_t tryNum = 1;
-	mcl::she::initG1only(mcl::ecparam::secp256k1, 2048, tryNum);
-//	mcl::she::init(mcl::BLS12_381, 2048, tryNum);
+	edit::init();
 	g_sec.setByCSPRNG();
 
 	return cybozu::test::autoRun.run(argc, argv);
