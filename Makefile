@@ -6,7 +6,7 @@ ALL_SRC=edit.cpp edit_test.cpp
 TARGET=edit
 all: $(TARGET)
 
-CFLAGS+=-I../mcl/include -std=c++14
+CFLAGS+=-I../mcl/include -std=c++11
 ifeq ($(OS),mac)
   CFLAGS+=-Xpreprocessor -fopenmp
   LDFLAGS+=-lomp
