@@ -44,6 +44,15 @@ sample test
 - client
   - ./edit -ip localhost -slen 128
 
+# How to use VTune
+```
+cd mcl
+make clean
+cd ../edit-dist
+make MCL_USE_PROF=2
+env MCL_PROF=2 ./edit ...
+```
+
 # Benchmark
 Xeon SP(Platinam 8280)
 - env OMP_NUM_THREADS=56 ./edit -slen 1024
