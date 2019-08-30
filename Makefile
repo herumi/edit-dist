@@ -14,6 +14,9 @@ else
   CFLAGS+=-fopenmp
   LDFLAGS+=-fopenmp
 endif
+ifeq ($(MCL_USE_PROF),2)
+  LDFLAGS+=-L /opt/intel/vtune_amplifier/lib64 -ljitprofiling -ldl
+endif
 
 MCLLIB=../mcl/lib/libmcl.a
 
