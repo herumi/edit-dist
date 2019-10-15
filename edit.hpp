@@ -99,13 +99,14 @@ void multiMul(G1 *out, const G1& P, const mpz_class *in)
 	G1 tbl[2][tblSize];
 
 	tbl[0][0] = P;
-	mcl::GLV1T<G1>::mulLambda(tbl[1][0], tbl[0][0]);
+	typedef mcl::GLV1T<G1, Fr> GLV;
+	GLV::mulLambda(tbl[1][0], tbl[0][0]);
 	{
 		G1 P2;
 		G1::dbl(P2, P);
 		for (size_t i = 1; i < tblSize; i++) {
 			G1::add(tbl[0][i], tbl[0][i - 1], P2);
-			mcl::GLV1T<G1>::mulLambda(tbl[1][i], tbl[0][i]);
+			GLV::mulLambda(tbl[1][i], tbl[0][i]);
 		}
 	}
 
@@ -114,7 +115,7 @@ void multiMul(G1 *out, const G1& P, const mpz_class *in)
 	mpz_class u[2];
 
 	for (size_t j = 0; j < n; j++) {
-		mcl::GLV1T<G1>::split(u[0], u[1], in[j]);
+		GLV::split(u[0], u[1], in[j]);
 		bool b;
 		mcl::gmp::getNAFwidth(&b, naf[0], u[0], w);
 		mcl::gmp::getNAFwidth(&b, naf[1], u[1], w);
