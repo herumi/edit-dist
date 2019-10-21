@@ -1,9 +1,9 @@
-# editing distance by reenc protocol
+# Editing Distance by Re-Encryption Protocol
 
 # Support architecture
 
 * x86-64 Windows + Visual Studio
-* x86, x86-64 Linux + gcc/clang
+* x86, x86-64 Linux/macOS + gcc/clang
 
 # Installation Requirements
 
@@ -50,15 +50,22 @@ cd mcl
 make clean
 cd ../edit-dist
 make MCL_USE_PROF=2
-env MCL_PROF=2 ./edit ...
+./edit ...
 ```
 
 # Benchmark
 Xeon SP(Platinam 8280)
-- env OMP_NUM_THREADS=56 ./edit -slen 1024
-- env OMP_NUM_THREADS=40 ./edit -ip localhost -slen 1024
+- env OMP_NUM_THREADS=56 numactl --cpunodebind=0 --membind=0 ./edit -slen 1024
+- env OMP_NUM_THREADS=40 numactl --cpunodebind=1 --membind=1 ./edit -ip localhost -slen 1024
 
-total 44.72 sec
+total 43 sec
+
+# Reference
+[Arbitrary Univariate Function Evaluation and Re-Encryption Protocols over Lifted-ElGamal Type Ciphertexts](https://eprint.iacr.org/2019/1233), Koji Nuida and Satsuya Ohata and Shigeo Mitsunari and Nuttapong Attrapadung
+
+
+# Acknowledgements
+Thanks to Masashi Horikoshi at Intel to provide Xeon SP environments to evaluate this protocol.
 
 # Author
 
