@@ -42,7 +42,7 @@ sample test
 - server
   - ./edit -slen 128
 - client
-  - ./edit -ip localhost -slen 128
+  - ./edit -ip <server> -slen 128
 
 # How to use VTune
 ```
@@ -56,7 +56,7 @@ make MCL_USE_PROF=2
 # Benchmark
 Xeon SP(Platinam 8280)
 - env OMP_NUM_THREADS=56 numactl --cpunodebind=0 --membind=0 ./edit -slen 1024
-- env OMP_NUM_THREADS=40 numactl --cpunodebind=1 --membind=1 ./edit -ip localhost -slen 1024
+- env OMP_NUM_THREADS=40 numactl --cpunodebind=1 --membind=1 ./edit -ip <server> -slen 1024
 
 total 43 sec
 
