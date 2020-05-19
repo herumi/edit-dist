@@ -1,4 +1,6 @@
 #pragma once
+//#define CYBOZU_EXCEPTION_WITH_STACKTRACE
+//#define CYBOZU_STACKTRACE_WITH_BFD_GPL
 #define MCLSHE_WIN_SIZE 12
 #define MCLBN_FP_UNIT_SIZE 4
 #define MCLBN_FR_UNIT_SIZE 4
@@ -31,16 +33,49 @@ G1 g_2P;
 void init()
 {
 	const size_t tryNum = 1;
-	mcl::she::initG1only(mcl::ecparam::secp256k1, 2048, tryNum);
+	mcl::she::initG1only(mcl::ecparam::secp256k1, 4096, tryNum);
 	edit::g_winP.init(SHE::P_, 256, MCLSHE_WIN_SIZE);
 	G1::dbl(g_2P, SHE::P_);
 }
 
 } // edit
 
+//#define USE_AFFINE
 struct CipherPack {
+	static const size_t n = edit::diffNum;
 	int id;
-	CipherTextG1 c[edit::diffNum];
+	static const size_t oneSize = sizeof(Fp) * 2 * 2;
+	CipherTextG1 c[n];
+	template<class Stream>
+	void write(Stream& os)
+	{
+#ifdef USE_AFFINE
+		char buf[oneSize * n + sizeof(int)];
+		cybozu::MemoryOutputStream mos(buf, sizeof(buf));
+		for (size_t i = 0; i < n; i++) {
+			c[i].save(mos, mcl::IoEcAffineSerialize);
+		}
+		cybozu::write(mos, &id, sizeof(id));
+		os.write(buf, mos.getPos());
+#else
+		os.write(this, sizeof(*this));
+#endif
+	}
+	template<class Stream>
+	void read(Stream& is)
+	{
+#ifdef USE_AFFINE
+		char buf[oneSize * n + sizeof(int)];
+		is.read(buf, sizeof(buf));
+		cybozu::MemoryInputStream mis(buf, sizeof(buf));
+		for (size_t i = 0; i < n; i++) {
+			c[i].load(mis, mcl::IoEcAffineSerialize);
+		}
+		cybozu::read(&id, sizeof(id), mis);
+#else
+		is.read(this, sizeof(*this));
+#endif
+	}
 };
 
 struct Timer {
@@ -170,7 +205,7 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	G1::add(SVec[0], S, SHE::P_); // c - Enc(-1)
 	SVec[1] = S; // c - Enc(0)
 	G1::sub(SVec[2], S, SHE::P_); // c - Enc(1)
-	G1::sub(SVec[2], S, edit::g_2P); // c - Enc(2)
+	G1::sub(SVec[3], S, edit::g_2P); // c - Enc(2)
 	for (int i = 0; i < n; i++) {
 		G1::mul(SVec[i], SVec[i], rVec[i]);
 	}
@@ -186,12 +221,14 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	edit::g_winP.mul(rP, rVec[0]);
 	SVec[0] += rP; // (rS - (-1)rP)
 
-	edit::g_winP.mul(rP, rVec[2]);
-	SVec[2] -= rP; // (rP - (1)rP)
+	// SVec[1] ; not change
 
-	rVec[3] += rVec[3];
+	edit::g_winP.mul(rP, rVec[2]);
+	SVec[2] -= rP; // (rS - (1)rP)
+
 	edit::g_winP.mul(rP, rVec[3]);
-	SVec[3] -= rP; // (rP - (2)rP)
+	G1::dbl(rP, rP);
+	SVec[3] -= rP; // (rS - (2)rP)
 #endif
 	for (int i = 0; i < n; i++) {
 		const_cast<G1&>(v[i].getS()) = SVec[i];
@@ -234,7 +271,7 @@ void serverMinVec(Stream& soc, CIPHER *out, const CIPHER *bv, int m, cybozu::Ran
 
 		{
 			std::lock_guard<std::mutex> lk(mw);
-			soc.write(&cp, sizeof(cp));
+			cp.write(soc);
 		}
 	}
 
@@ -244,7 +281,7 @@ void serverMinVec(Stream& soc, CIPHER *out, const CIPHER *bv, int m, cybozu::Ran
 	*/
 	for (int i = 0; i < m; i++) {
 		CipherPack cp;
-		soc.read(&cp, sizeof(cp));
+		cp.read(soc);
 		if (0 <= cp.id && cp.id < m) {
 			sub(out[cp.id], bv[cp.id], cp.c[idxVec[cp.id * n]]);
 		}
@@ -288,10 +325,10 @@ template<class Stream>
 bool clientReEnc(Stream& soc, const SecretKey& sec, const PrecomputedPublicKey& ppub)
 {
 	CipherPack cp;
-	soc.read(&cp, sizeof(cp));
+	cp.read(soc);
 	if (cp.id < 0) return false;
 	clientReEncPack(&cp, sec, ppub);
-	soc.write(&cp, sizeof(cp));
+	cp.write(soc);
 	return true;
 }
 
@@ -338,12 +375,12 @@ bool clientProcess(Stream& soc, const SecretKey& sec, const IntVec& v, int charN
 			CipherPack cp;
 			{
 				std::lock_guard<std::mutex> lk(mr);
-				soc.read(&cp, sizeof(cp));
+				cp.read(soc);
 			}
 			clientReEncPack(&cp, sec, ppub);
 			{
 				std::lock_guard<std::mutex> lk(mw);
-				soc.write(&cp, sizeof(cp));
+				cp.write(soc);
 			}
 		}
 	}

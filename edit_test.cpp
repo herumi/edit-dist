@@ -144,6 +144,7 @@ CYBOZU_TEST_AUTO(bench)
 	CipherTextG1 c1;
 	puts("G1");
 	CYBOZU_BENCH_C("enc", 1000, ppub.enc, c1, 123);
+	CYBOZU_BENCH_C("dec", 1000, g_sec.dec, c1);
 	CYBOZU_BENCH_C("isZero", 1000, g_sec.isZero, c1);
 	CYBOZU_BENCH_C("add", 1000, CipherTextG1::add, c1, c1, c1);
 	CYBOZU_BENCH_C("mul", 1000, CipherTextG1::mul, c1, c1, gamma);
