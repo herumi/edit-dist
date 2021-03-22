@@ -150,7 +150,7 @@ void multiMul(G1 *out, const G1& P, const mpz_class *in)
 	mpz_class u[2];
 
 	for (size_t j = 0; j < n; j++) {
-		GLV::split(u[0], u[1], in[j]);
+		GLV::split(u, in[j]);
 		bool b;
 		mcl::gmp::getNAFwidth(&b, naf[0], u[0], w);
 		mcl::gmp::getNAFwidth(&b, naf[1], u[1], w);
