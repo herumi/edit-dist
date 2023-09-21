@@ -1,3 +1,4 @@
+MCL_USE_OMP=1
 include ../mcl/common.mk
 
 SRC=edit.cpp
@@ -7,13 +8,6 @@ TARGET=edit
 all: $(TARGET)
 
 CFLAGS+=-I../mcl/include -std=c++11
-ifeq ($(OS),mac)
-  CFLAGS+=-Xpreprocessor -fopenmp
-  LDFLAGS+=-lomp
-else
-  CFLAGS+=-fopenmp
-  LDFLAGS+=-fopenmp
-endif
 ifeq ($(MCL_USE_PROF),2)
   LDFLAGS+=-L /opt/intel/vtune_amplifier/lib64 -ljitprofiling -ldl
 endif
