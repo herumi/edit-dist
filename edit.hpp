@@ -121,7 +121,7 @@ int editDist(const V& a, const V& b)
 	out[i] = P * in[i]
 */
 template<size_t n, int w = 7>
-void multiMul(G1 *out, const G1& P, const mpz_class *in)
+void multiMul(G1 *out, const G1& P, mpz_class *in)
 {
 #if 0
 	// 568Kclk
@@ -194,7 +194,7 @@ void mixEnc(INT_VEC *idxVec, CipherPack& cp, const CipherTextG1& in, cybozu::Ran
 	assert(n == 4);
 	mpz_class rVec[n];
 	for (int i = 0; i < n; i++) {
-		mcl::gmp::getRand(rVec[i], 256);
+		mcl::gmp::getRand(rVec[i], 254);
 	}
 	const G1& S = in.getS();
 	const G1& T = in.getT();
