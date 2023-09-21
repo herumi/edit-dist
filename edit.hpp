@@ -40,7 +40,7 @@ void init()
 
 } // edit
 
-//#define USE_AFFINE
+#define USE_AFFINE
 struct CipherPack {
 	static const size_t n = edit::diffNum;
 	int id;
@@ -52,9 +52,13 @@ struct CipherPack {
 #ifdef USE_AFFINE
 		char buf[oneSize * n + sizeof(int)];
 		cybozu::MemoryOutputStream mos(buf, sizeof(buf));
+#if 1
+		mcl::she::serializeVecToAffine(mos, c, n);
+#else
 		for (size_t i = 0; i < n; i++) {
 			c[i].save(mos, mcl::IoEcAffineSerialize);
 		}
+#endif
 		cybozu::write(mos, &id, sizeof(id));
 		os.write(buf, mos.getPos());
 #else
@@ -68,9 +72,13 @@ struct CipherPack {
 		char buf[oneSize * n + sizeof(int)];
 		is.read(buf, sizeof(buf));
 		cybozu::MemoryInputStream mis(buf, sizeof(buf));
+#if 1
+		mcl::she::deserializeVecFromAffine(c, n, mis);
+#else
 		for (size_t i = 0; i < n; i++) {
 			c[i].load(mis, mcl::IoEcAffineSerialize);
 		}
+#endif
 		cybozu::read(&id, sizeof(id), mis);
 #else
 		is.read(this, sizeof(*this));
